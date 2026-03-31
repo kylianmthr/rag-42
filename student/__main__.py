@@ -1,6 +1,8 @@
 from typing import Optional
 import fire
+import bm25s
 import os
+import json
 from langchain_text_splitters import (
     Language,
     MarkdownTextSplitter,
@@ -30,25 +32,6 @@ class CLI:
                         else:
                             python_content.append(content)
                             python_metadata.append({"source": path_file})
-                            # splitter: Optional[
-                            #    MarkdownTextSplitter
-                            #    | RecursiveCharacterTextSplitter
-                            # ] = None
-                            # if extension == ".md":
-                            #    splitter = MarkdownTextSplitter(
-                            #        chunk_size=max_chunk_size,
-                            #        add_start_index=True,
-                            #    )
-                            # else:
-                            #    splitter = (
-                            #        RecursiveCharacterTextSplitter.from_language(
-                            #            language=Language.PYTHON,
-                            #            chunk_size=max_chunk_size,
-                            #            add_start_index=True,
-                            #        )
-                            #    )
-                        # src.append(MinimalSource(path_file, splitter))
-
         splitter = MarkdownTextSplitter(
             chunk_size=max_chunk_size,
             add_start_index=True,
@@ -61,6 +44,7 @@ class CLI:
                     first_character_index=doc.metadata["start_index"],
                     last_character_index=doc.metadata["start_index"]
                     + len(doc.page_content),
+                    page_content=doc.page_content,
                 )
             )
 
@@ -79,8 +63,21 @@ class CLI:
                     first_character_index=doc.metadata["start_index"],
                     last_character_index=doc.metadata["start_index"]
                     + len(doc.page_content),
+                    page_content=doc.page_content,
                 )
             )
+        tokenized_content = [doc.page_content.split(" ") for doc in src]
+        retriever = bm25s.BM25(corpus=tokenized_content)
+        retriever.index(tokenized_content)
+        retriever.save(
+            "data/processed/bm25_index",
+            corpus=[obj.model_dump() for obj in src],
+        )
+        chunk_data = [json.loads(doc.model_dump_json()) for doc in src]
+        if not os.path.isdir("data/processed/chunks"):
+            os.mkdir("data/processed/chunks")
+        with open("data/processed/chunks/corpus.json", "w") as f:
+            json.dump(chunk_data, f)
 
     def search(self):
         pass
