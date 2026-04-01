@@ -7,7 +7,9 @@ import bm25s
 from numpy._typing import NDArray
 from student.validator import (
     MinimalAnswer,
+    MinimalSearchResults,
     MinimalSource,
+    RagDataset,
     StudentSearchResults,
     StudentSearchResultsAndAnswer,
     UnansweredQuestion,
@@ -64,9 +66,31 @@ class CLI:
         docs, scores = ret_loaded.retrieve(bm25s.tokenize(query), k=k)
         return docs
 
-    def search_dataset(self, dataset_path: str, k: int, save_directory: str):
-
-        pass
+    def search_dataset(
+        self,
+        dataset_path: str = "datasets_public/public/UnansweredQuestions/dataset_code_public.json",
+        k: int = 1,
+        save_directory: str = "test",
+    ):
+        search_results: list[MinimalSearchResults] = []
+        with open(dataset_path, "r") as f:
+            rag_dataset = RagDataset.model_validate_json(f.read())
+        for question in rag_dataset.rag_questions:
+            search_res = self.search(question.question, k)
+            search_results.append(
+                MinimalSearchResults(
+                    question_id=question.question_id,
+                    question=question.question,
+                    retrieved_sources=[
+                        MinimalSource(**doc) for doc in search_res[0]
+                    ],
+                )
+            )
+        res = StudentSearchResults(search_results=search_results, k=k)
+        if not os.path.isdir(save_directory):
+            os.mkdir(save_directory)
+        with open(f"{save_directory}/output.json", "w") as f:
+            json.dump(json.loads(res.model_dump_json()), f)
 
     def answer(self, prompt: str, k: int = 2):
         unanswered = UnansweredQuestion(question=prompt)
@@ -106,13 +130,7 @@ class CLI:
                     question_id=unanswered.question_id,
                     question=prompt,
                     retrieved_sources=[
-                        MinimalSource(
-                            file_path=doc["file_path"],
-                            first_character_index=doc["first_character_index"],
-                            last_character_index=doc["last_character_index"],
-                            page_content=doc["page_content"],
-                        )
-                        for doc in docs[0]
+                        MinimalSource(**doc) for doc in docs[0]
                     ],
                     answer=answer,
                 )
