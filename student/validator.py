@@ -31,6 +31,7 @@ class MinimalSearchResults(BaseModel):
 
 
 class MinimalAnswer(MinimalSearchResults):
+    question_id: str
     answer: str
 
 

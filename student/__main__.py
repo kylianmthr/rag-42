@@ -1,7 +1,17 @@
+import json
+import os
 import time
 import fire
 import re
 import bm25s
+from numpy._typing import NDArray
+from student.validator import (
+    MinimalAnswer,
+    MinimalSource,
+    StudentSearchResults,
+    StudentSearchResultsAndAnswer,
+    UnansweredQuestion,
+)
 from transformers import (
     AutoTokenizer,
     AutoModelForCausalLM,
@@ -47,17 +57,19 @@ class CLI:
             )
         Index().save(src)
 
-    def search(self, query: str, k: int):
+    def search(self, query: str, k: int) -> NDArray:
         ret_loaded = bm25s.BM25.load(
             "data/processed/bm25_index", load_corpus=True
         )
         docs, scores = ret_loaded.retrieve(bm25s.tokenize(query), k=k)
         return docs
 
-    def search_dataset(self):
+    def search_dataset(self, dataset_path: str, k: int, save_directory: str):
+
         pass
 
     def answer(self, prompt: str, k: int = 2):
+        unanswered = UnansweredQuestion(question=prompt)
         docs = self.search(prompt, k)
         context = "### RETRIEVED_CONTEXT ###\n"
         for doc in docs[0]:
@@ -67,7 +79,6 @@ class CLI:
             context += "---\n"
         tokenizer = AutoTokenizer.from_pretrained("Qwen/Qwen3-0.6B")
         model = AutoModelForCausalLM.from_pretrained("Qwen/Qwen3-0.6B")
-        # pipe = pipeline("text-generation", model="Qwen/Qwen3-0.6B", device=0)
         messages = [
             {"role": "system", "content": Answer().limit(context)},
             {"role": "user", "content": "/no_think " + prompt},
@@ -82,22 +93,37 @@ class CLI:
         ).to(model.device)
         start = time.time()
         outputs = Answer().generate_answer(model, inputs)
-        # print(Answer().decode(tokenizer, inputs, outputs))
-        # gen_cfg = GenerationConfig(
-        #    max_new_tokens=50,
-        #    do_sample=True,
-        # )
-        # print(pipe(messages, generation_config=gen_cfg))
         print("Time:", time.time() - start)
-        print(
-            re.sub(
-                r"<think>.*?</think>",
-                "",
-                Answer().decode(tokenizer, inputs, outputs),
-                # pipe(messages),
-                flags=re.DOTALL,
-            ).strip(".")
+        answer = re.sub(
+            r"<think>.*?</think>",
+            "",
+            Answer().decode(tokenizer, inputs, outputs),
+            flags=re.DOTALL,
+        ).strip()
+        res = StudentSearchResultsAndAnswer(
+            search_results=[
+                MinimalAnswer(
+                    question_id=unanswered.question_id,
+                    question=prompt,
+                    retrieved_sources=[
+                        MinimalSource(
+                            file_path=doc["file_path"],
+                            first_character_index=doc["first_character_index"],
+                            last_character_index=doc["last_character_index"],
+                            page_content=doc["page_content"],
+                        )
+                        for doc in docs[0]
+                    ],
+                    answer=answer,
+                )
+            ],
+            k=k,
         )
+        res_json = json.loads(res.model_dump_json())
+        if not os.path.isdir("data/output"):
+            os.mkdir("data/output")
+        with open("data/output/search_result.json", "w") as f:
+            json.dump(res_json, f)
 
     def answer_dataset(self):
         pass
