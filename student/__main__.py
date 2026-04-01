@@ -2,12 +2,9 @@ import time
 import fire
 import re
 import bm25s
-import torch
 from transformers import (
     AutoTokenizer,
     AutoModelForCausalLM,
-    GenerationConfig,
-    pipeline,
 )
 from langchain_text_splitters import (
     Language,

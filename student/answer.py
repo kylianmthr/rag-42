@@ -15,7 +15,8 @@ class Answer:
         )
 
     def decode(self, tokenizer, inputs, outputs):
-        return tokenizer.decode(outputs[0][inputs["input_ids"].shape[-1] :])
+        index = inputs["input_ids"].shape[-1]
+        return tokenizer.decode(outputs[0][index:])
 
     def limit(self, string: str):
         if len(string) > 400:
