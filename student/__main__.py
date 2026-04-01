@@ -3,7 +3,12 @@ import fire
 import re
 import bm25s
 import torch
-from transformers import AutoTokenizer, AutoModelForCausalLM, GenerationConfig
+from transformers import (
+    AutoTokenizer,
+    AutoModelForCausalLM,
+    GenerationConfig,
+    pipeline,
+)
 from langchain_text_splitters import (
     Language,
     MarkdownTextSplitter,
@@ -57,21 +62,7 @@ class CLI:
 
     def answer(self, prompt: str, k: int = 2):
         docs = self.search(prompt, k)
-        context = (
-            "You are a technical assistant specializing in the vLLM codebase."
-            " Your goal is to provide accurate answers based ONLY on the "
-            "provided context.\n### MANDATORY RULES ###\n"
-            "1. GROUNDING: Use only the information from the "
-            '"RETRIEVED_CONTEXT" section. If the answer is not present, '
-            "state: \"I'm sorry, but the provided context does not contain "
-            'enough information to answer this question."\n'
-            "2. CITATIONS: You MUST cite the source file path for every claim "
-            "or code snippet you provide. Use brackets at the end of the "
-            "sentence, e.g., [vllm/engine/llm_engine.py].\n"
-            "3. BREVITY: Keep your technical explanations concise and focus "
-            "on the code implementation.)\n"
-            "### RETRIEVED_CONTEXT ###\n"
-        )
+        context = "### RETRIEVED_CONTEXT ###\n"
         for doc in docs[0]:
             context += f"# SOURCE: {doc['file_path']}\n"
             context += "---\n"
@@ -79,10 +70,12 @@ class CLI:
             context += "---\n"
         tokenizer = AutoTokenizer.from_pretrained("Qwen/Qwen3-0.6B")
         model = AutoModelForCausalLM.from_pretrained("Qwen/Qwen3-0.6B")
+        # pipe = pipeline("text-generation", model="Qwen/Qwen3-0.6B", device=0)
         messages = [
-            {"role": "system", "content": context},
+            {"role": "system", "content": Answer().limit(context)},
             {"role": "user", "content": "/no_think " + prompt},
         ]
+        print(len(Answer().limit(prompt)))
         inputs = tokenizer.apply_chat_template(
             messages,
             add_generation_prompt=True,
@@ -92,13 +85,19 @@ class CLI:
         ).to(model.device)
         start = time.time()
         outputs = Answer().generate_answer(model, inputs)
+        # print(Answer().decode(tokenizer, inputs, outputs))
+        # gen_cfg = GenerationConfig(
+        #    max_new_tokens=50,
+        #    do_sample=True,
+        # )
+        # print(pipe(messages, generation_config=gen_cfg))
         print("Time:", time.time() - start)
-        print(Answer().decode(tokenizer, inputs, outputs))
         print(
             re.sub(
                 r"<think>.*?</think>",
                 "",
                 Answer().decode(tokenizer, inputs, outputs),
+                # pipe(messages),
                 flags=re.DOTALL,
             ).strip(".")
         )
