@@ -1,6 +1,4 @@
 import fire
-from pydantic import ValidationError
-from student.errors import EmptyFolder
 from student.rag import RAG
 from student.validator import (
     MinimalSearchResults,

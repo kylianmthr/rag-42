@@ -49,7 +49,7 @@ class Indexer:
                             self.metadatas["python_metadatas"].append(
                                 {"source": path_file}
                             )
-        if not len(self.contents["python_content"]) or not len(
+        if not len(self.contents["python_content"]) and not len(
             self.contents["md_content"]
         ):
             raise EmptyFolder("The folder doesn't contain .md or .py file")
