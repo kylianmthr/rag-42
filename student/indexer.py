@@ -1,4 +1,8 @@
 import os
+import uuid
+import chromadb
+import dotenv
+from chromadb.utils import embedding_functions
 from typing import Any, TypedDict
 from langchain_text_splitters import (
     Language,
@@ -27,6 +31,7 @@ class Indexer:
             "python_metadatas": [],
             "md_metadatas": [],
         }
+        self.ids: list[str] = []
         self.src: list[MinimalSource] = []
         self.max_chunk_size = max_chunk_size
         self.path = path
@@ -49,6 +54,7 @@ class Indexer:
                             self.metadatas["python_metadatas"].append(
                                 {"source": path_file}
                             )
+                        self.ids.append(str(uuid.uuid4()))
         if not len(self.contents["python_content"]) and not len(
             self.contents["md_content"]
         ):
@@ -105,8 +111,22 @@ class Indexer:
             "data/processed/bm25_index",
             corpus=[obj.model_dump() for obj in self.src],
         )
-        chunk_data = [json.loads(doc.model_dump_json()) for doc in self.src]
         if not os.path.isdir("data/processed/chunks"):
             os.mkdir("data/processed/chunks")
-        with open("data/processed/chunks/corpus.json", "w") as f:
-            json.dump(chunk_data, f)
+        client = chromadb.PersistentClient(path="data/processed/chunks")
+        dotenv.load_dotenv()
+        collection = client.get_or_create_collection(
+            name="chunks",
+        )
+        collection.add(
+            documents=self.contents["python_content"]
+            + self.contents["md_content"],
+            metadatas=self.metadatas["python_metadatas"]
+            + self.metadatas["md_metadatas"],
+            ids=self.ids,
+        )
+        # chunk_data = [json.loads(doc.model_dump_json()) for doc in self.src]
+        # if not os.path.isdir("data/processed/chunks"):
+        #    os.mkdir("data/processed/chunks")
+        # with open("data/processed/chunks/corpus.json", "w") as f:
+        #    json.dump(chunk_data, f)
