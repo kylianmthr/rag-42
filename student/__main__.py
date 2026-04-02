@@ -5,6 +5,7 @@ import fire
 import re
 import bm25s
 from numpy._typing import NDArray
+from student.indexer import Indexer
 from student.validator import (
     MinimalAnswer,
     MinimalSearchResults,
@@ -24,7 +25,6 @@ from langchain_text_splitters import (
     RecursiveCharacterTextSplitter,
 )
 
-from student.index import ChunkDict, Index
 from student.answer import Answer
 
 
@@ -32,32 +32,10 @@ class CLI:
     def index(
         self, path: str = "vllm-0.10.1/", max_chunk_size: int = 2000
     ) -> None:
-        contents, metadatas = Index().read_contents(path)
-        src = []
-        chunks: list[ChunkDict] = [
-            {
-                "splitter": MarkdownTextSplitter(
-                    chunk_size=max_chunk_size,
-                    add_start_index=True,
-                ),
-                "content": contents["md_content"],
-                "metadatas": metadatas["md_metadatas"],
-            },
-            {
-                "splitter": RecursiveCharacterTextSplitter.from_language(
-                    language=Language.PYTHON,
-                    chunk_size=max_chunk_size,
-                    add_start_index=True,
-                ),
-                "content": contents["python_content"],
-                "metadatas": metadatas["python_metadatas"],
-            },
-        ]
-        for chunk in chunks:
-            src += Index().split(
-                chunk["splitter"], chunk["content"], chunk["metadatas"]
-            )
-        Index().save(src)
+        indexer = Indexer(path, max_chunk_size)
+        indexer.load_files()
+        indexer.split()
+        indexer.save()
 
     def search(self, query: str, k: int) -> NDArray:
         ret_loaded = bm25s.BM25.load(
