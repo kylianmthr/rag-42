@@ -1,7 +1,7 @@
 import json
 import os
 import re
-from numpy._typing import NDArray
+from typing import Any
 from pydantic import BaseModel
 from student.generate import Generate
 from student.indexer import Indexer
@@ -16,7 +16,7 @@ from student.validator import (
 
 
 class RAG:
-    def index(self, path: str, max_chunk_size: int):
+    def index(self, path: str, max_chunk_size: int) -> None:
         indexer = Indexer(path, max_chunk_size)
         indexer.load_files()
         indexer.split()
@@ -25,17 +25,17 @@ class RAG:
     def load_index(self) -> bm25s.BM25:
         return bm25s.BM25.load("data/processed/bm25_index", load_corpus=True)
 
-    def search(self, query: str, k: int) -> NDArray:
+    def search(self, query: str, k: int) -> Any:
         ret_loaded = self.load_index()
         docs, scores = ret_loaded.retrieve(bm25s.tokenize(query), k=k)
         return docs
 
     def search_dataset(
         self,
-        dataset_path,
-        k,
-        save_directory,
-    ):
+        dataset_path: str,
+        k: int,
+        save_directory: str,
+    ) -> None:
         search_results: list[MinimalSearchResults] = []
         with open(dataset_path, "r") as f:
             rag_dataset = RagDataset.model_validate_json(f.read())
@@ -53,7 +53,7 @@ class RAG:
         res = StudentSearchResults(search_results=search_results, k=k)
         self.save_model(save_directory, "search_result.json", res)
 
-    def answer(self, prompt, k):
+    def answer(self, prompt: str, k: int) -> None:
         generator = Generate(
             [MinimalSource(**doc) for doc in self.search(prompt, k)[0]],
             prompt,
@@ -77,7 +77,7 @@ class RAG:
                 f,
             )
 
-    def save_model(self, path: str, file: str, model: BaseModel):
+    def save_model(self, path: str, file: str, model: BaseModel) -> None:
         if not os.path.isdir(path):
             os.mkdir(path)
         with open(f"{path}/{file}", "w") as f:

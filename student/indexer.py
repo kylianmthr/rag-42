@@ -12,8 +12,8 @@ from student.validator import MinimalSource
 
 class ChunkDict(TypedDict):
     splitter: MarkdownTextSplitter | RecursiveCharacterTextSplitter
-    content: list
-    metadatas: list
+    content: list[str]
+    metadatas: list[str]
 
 
 class Indexer:
@@ -52,8 +52,8 @@ class Indexer:
     def specific_split(
         self,
         splitter: RecursiveCharacterTextSplitter | MarkdownTextSplitter,
-        content: list,
-        metadatas: list,
+        content: list[str],
+        metadatas: list[str],
     ) -> None:
         docs = splitter.create_documents(content, metadatas=metadatas)
         for i, doc in enumerate(docs):
@@ -67,7 +67,7 @@ class Indexer:
                 )
             )
 
-    def split(self):
+    def split(self) -> None:
         chunks: list[ChunkDict] = [
             {
                 "splitter": MarkdownTextSplitter(
@@ -92,7 +92,7 @@ class Indexer:
                 chunk["splitter"], chunk["content"], chunk["metadatas"]
             )
 
-    def save(self):
+    def save(self) -> None:
         tokenized_content = [doc.page_content.split(" ") for doc in self.src]
         retriever = bm25s.BM25(corpus=tokenized_content)
         retriever.index(tokenized_content)

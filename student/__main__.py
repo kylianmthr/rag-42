@@ -35,19 +35,22 @@ class CLI:
 
     def search_dataset(
         self,
-        dataset_path: str = "datasets_public/public/UnansweredQuestions/dataset_code_public.json",
+        dataset_path: str = (
+            "datasets_public/public/"
+            "UnansweredQuestions/dataset_code_public.json"
+        ),
         k: int = 1,
         save_directory: str = "data/output",
-    ):
+    ) -> None:
         self.rag.search_dataset(dataset_path, k, save_directory)
 
-    def answer(self, prompt: str, k: int = 2):
+    def answer(self, prompt: str, k: int = 2) -> None:
         self.rag.answer(prompt, k)
 
-    def answer_dataset(self):
+    def answer_dataset(self) -> None:
         pass
 
-    def evaluate(self):
+    def evaluate(self) -> None:
         pass
 
 
