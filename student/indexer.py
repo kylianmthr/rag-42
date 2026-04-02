@@ -7,13 +7,14 @@ from langchain_text_splitters import (
 )
 import bm25s
 import json
+from student.errors import EmptyFolder
 from student.validator import MinimalSource
 
 
 class ChunkDict(TypedDict):
     splitter: MarkdownTextSplitter | RecursiveCharacterTextSplitter
-    content: list[str]
-    metadatas: list[str]
+    content: list[Any]
+    metadatas: list[Any]
 
 
 class Indexer:
@@ -48,12 +49,16 @@ class Indexer:
                             self.metadatas["python_metadatas"].append(
                                 {"source": path_file}
                             )
+        if not len(self.contents["python_content"]) or not len(
+            self.contents["md_content"]
+        ):
+            raise EmptyFolder("The folder doesn't contain .md or .py file")
 
     def specific_split(
         self,
         splitter: RecursiveCharacterTextSplitter | MarkdownTextSplitter,
-        content: list[str],
-        metadatas: list[str],
+        content: list[Any],
+        metadatas: list[Any],
     ) -> None:
         docs = splitter.create_documents(content, metadatas=metadatas)
         for i, doc in enumerate(docs):
