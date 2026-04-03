@@ -2,7 +2,6 @@ import fire
 from student.rag import RAG
 from student.validator import (
     MinimalSearchResults,
-    MinimalSource,
     StudentSearchResults,
 )
 
@@ -26,7 +25,6 @@ class CLI:
     def search(self, query: str, k: int) -> None:
         try:
             docs = self.rag.search(query, k)
-            print(docs)
             res = StudentSearchResults(
                 search_results=[
                     MinimalSearchResults(

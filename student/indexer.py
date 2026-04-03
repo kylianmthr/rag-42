@@ -1,6 +1,7 @@
 import os
 import uuid
 from typing import Any, TypedDict
+import chromadb
 from langchain_text_splitters import (
     Language,
     MarkdownTextSplitter,
@@ -101,19 +102,25 @@ class Indexer:
             )
 
     def batch_insert(
-        self, client, ids, documents, metadatas, batch_size: int = 5000
+        self,
+        client: chromadb.api.client.Client,
+        ids: list[str],
+        documents: list[str],
+        metadatas: list[dict[str, Any]],
+        batch_size: int = 5000,
     ) -> None:
         collection = client.get_or_create_collection(
             name="chunks",
         )
         for i in tqdm(range(0, len(ids), batch_size), desc="ChromaDB"):
+            index = i + batch_size
             collection.add(
-                documents=documents[i : i + batch_size],
-                metadatas=metadatas[i : i + batch_size],
-                ids=ids[i : i + batch_size],
+                documents=documents[i:index],
+                metadatas=metadatas[i:index],
+                ids=ids[i:index],
             )
 
-    def save(self, client) -> None:
+    def save(self, client: chromadb.api.client.Client) -> None:
         tokenized_content = [doc.page_content.split(" ") for doc in self.src]
         retriever = bm25s.BM25(corpus=tokenized_content)
         retriever.index(tokenized_content)
