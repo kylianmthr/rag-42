@@ -1,4 +1,5 @@
 import os
+import uuid
 from typing import Any, TypedDict
 from langchain_text_splitters import (
     Language,
@@ -6,7 +7,7 @@ from langchain_text_splitters import (
     RecursiveCharacterTextSplitter,
 )
 import bm25s
-import json
+from tqdm.std import tqdm
 from student.errors import EmptyFolder
 from student.validator import MinimalSource
 
@@ -27,6 +28,7 @@ class Indexer:
             "python_metadatas": [],
             "md_metadatas": [],
         }
+        self.ids: list[str] = []
         self.src: list[MinimalSource] = []
         self.max_chunk_size = max_chunk_size
         self.path = path
@@ -49,6 +51,7 @@ class Indexer:
                             self.metadatas["python_metadatas"].append(
                                 {"source": path_file}
                             )
+                        self.ids.append(str(uuid.uuid4()))
         if not len(self.contents["python_content"]) and not len(
             self.contents["md_content"]
         ):
@@ -97,7 +100,20 @@ class Indexer:
                 chunk["splitter"], chunk["content"], chunk["metadatas"]
             )
 
-    def save(self) -> None:
+    def batch_insert(
+        self, client, ids, documents, metadatas, batch_size: int = 5000
+    ) -> None:
+        collection = client.get_or_create_collection(
+            name="chunks",
+        )
+        for i in tqdm(range(0, len(ids), batch_size), desc="ChromaDB"):
+            collection.add(
+                documents=documents[i : i + batch_size],
+                metadatas=metadatas[i : i + batch_size],
+                ids=ids[i : i + batch_size],
+            )
+
+    def save(self, client) -> None:
         tokenized_content = [doc.page_content.split(" ") for doc in self.src]
         retriever = bm25s.BM25(corpus=tokenized_content)
         retriever.index(tokenized_content)
@@ -105,8 +121,14 @@ class Indexer:
             "data/processed/bm25_index",
             corpus=[obj.model_dump() for obj in self.src],
         )
-        chunk_data = [json.loads(doc.model_dump_json()) for doc in self.src]
-        if not os.path.isdir("data/processed/chunks"):
-            os.mkdir("data/processed/chunks")
-        with open("data/processed/chunks/corpus.json", "w") as f:
-            json.dump(chunk_data, f)
+        self.batch_insert(
+            client,
+            documents=[src.page_content for src in self.src],
+            metadatas=[src.model_dump() for src in self.src],
+            ids=[str(uuid.uuid4()) for _ in range(len(self.src))],
+        )
+        # chunk_data = [json.loads(doc.model_dump_json()) for doc in self.src]
+        # if not os.path.isdir("data/processed/chunks"):
+        #    os.mkdir("data/processed/chunks")
+        # with open("data/processed/chunks/corpus.json", "w") as f:
+        #    json.dump(chunk_data, f)

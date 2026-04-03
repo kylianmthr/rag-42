@@ -26,19 +26,19 @@ class CLI:
     def search(self, query: str, k: int) -> None:
         try:
             docs = self.rag.search(query, k)
+            print(docs)
             res = StudentSearchResults(
                 search_results=[
                     MinimalSearchResults(
                         question_id="1",
                         question=query,
-                        retrieved_sources=[
-                            MinimalSource(**doc) for doc in docs[0]
-                        ],
+                        retrieved_sources=docs,
                     )
                 ],
                 k=k,
             )
             self.rag.save_model("data/output", "search_result.json", res)
+
         except (FileNotFoundError, PermissionError) as e:
             print("[Error]: Error while loading index:", e)
         except (FileExistsError, NotADirectoryError) as e:

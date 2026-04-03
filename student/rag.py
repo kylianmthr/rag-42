@@ -1,11 +1,14 @@
 import json
 import os
+from pathlib import Path
 import re
 from typing import Any
+from langchain_core import documents
 from pydantic import BaseModel
 from student.generate import Generate
 from student.indexer import Indexer
 import bm25s
+import chromadb
 
 from student.validator import (
     MinimalSearchResults,
@@ -16,19 +19,37 @@ from student.validator import (
 
 
 class RAG:
+    def __init__(self) -> None:
+        path = Path("data/processed/chunks")
+        path.mkdir(parents=True, exist_ok=True)
+        self.client = chromadb.PersistentClient("data/processed/chunks")
+
     def index(self, path: str, max_chunk_size: int) -> None:
         indexer = Indexer(path, max_chunk_size)
         indexer.load_files()
         indexer.split()
-        indexer.save()
+        indexer.save(self.client)
 
     def load_index(self) -> bm25s.BM25:
         return bm25s.BM25.load("data/processed/bm25_index", load_corpus=True)
 
-    def search(self, query: str, k: int) -> Any:
+    def search(self, query: str, k: int) -> list[MinimalSource]:
+        sources: list[MinimalSource] = []
         ret_loaded = self.load_index()
+        collection = self.client.get_or_create_collection(
+            name="chunks",
+        )
+        res = collection.query(query_texts=[query], n_results=k)
         docs, scores = ret_loaded.retrieve(bm25s.tokenize(query), k=k)
-        return docs
+        sources += [MinimalSource(**doc) for doc in docs[0]]
+        if res["metadatas"]:
+            sources += [
+                MinimalSource(
+                    **res["metadatas"][i][0],
+                )
+                for i in range(len(res["ids"]))
+            ]  # c'est comme si y'avais pas tout qui etait rejoute, a voir dans le save parce que dans le search_results j'ai que 5 results et pas 10
+        return sources
 
     def search_dataset(
         self,
@@ -45,9 +66,7 @@ class RAG:
                 MinimalSearchResults(
                     question_id=question.question_id,
                     question=question.question,
-                    retrieved_sources=[
-                        MinimalSource(**doc) for doc in search_res[0]
-                    ],
+                    retrieved_sources=search_res,
                 )
             )
         res = StudentSearchResults(search_results=search_results, k=k)
@@ -55,7 +74,7 @@ class RAG:
 
     def answer(self, prompt: str, k: int) -> None:
         generator = Generate(
-            [MinimalSource(**doc) for doc in self.search(prompt, k)[0]],
+            self.search(prompt, k),
             prompt,
             k,
         )
