@@ -3,7 +3,6 @@ import os
 from pathlib import Path
 import re
 from pydantic import BaseModel
-from student import generate
 from student.generate import Generate
 from student.indexer import Indexer
 import bm25s
@@ -94,7 +93,7 @@ class RAG:
 
     def generate_pipeline(
         self, sources: list[MinimalSource], question: str, k: int
-    ):
+    ) -> str:
         generator = Generate(sources, question, k, self.model, self.tokenizer)
         inputs = generator.generate_inputs(
             generator.generate_context(), question

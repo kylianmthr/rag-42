@@ -2,10 +2,7 @@ from typing import Any
 import torch
 
 from student.validator import (
-    MinimalAnswer,
     MinimalSource,
-    StudentSearchResultsAndAnswer,
-    UnansweredQuestion,
 )
 
 

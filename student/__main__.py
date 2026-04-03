@@ -1,13 +1,8 @@
-import json
-import re
 import fire
-from student.generate import Generate
 from student.rag import RAG
 from student.validator import (
-    MinimalAnswer,
     MinimalSearchResults,
     StudentSearchResults,
-    StudentSearchResultsAndAnswer,
 )
 
 
@@ -75,7 +70,9 @@ class CLI:
 
     def answer_dataset(
         self,
-        student_search_results_path: str = "data/output/search_results/dataset_docs_public.json",
+        student_search_results_path: str = (
+            "data/output/search_results/dataset_docs_public.json"
+        ),
         save_directory: str = "data/output/search_results_and_answer",
     ) -> None:
         try:
