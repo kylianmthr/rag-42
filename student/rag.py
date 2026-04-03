@@ -127,7 +127,7 @@ class RAG:
         student_search_results_path: str,
         save_directory: str,
     ) -> None:
-        with open(student_search_results_path) as f:
+        with open(student_search_results_path, "r") as f:
             searchs = StudentSearchResults(**json.loads(f.read()))
             answers: list[MinimalAnswer] = []
             for search in searchs.search_results:

@@ -7,7 +7,7 @@ class MinimalSource(BaseModel):
     file_path: str
     first_character_index: int
     last_character_index: int
-    page_content: str
+    page_content: str | None = Field(default=None)
 
 
 class UnansweredQuestion(BaseModel):
@@ -21,7 +21,7 @@ class AnsweredQuestion(UnansweredQuestion):
 
 
 class RagDataset(BaseModel):
-    rag_questions: List[AnsweredQuestion | UnansweredQuestion]
+    rag_questions: List[AnsweredQuestion]
 
 
 class MinimalSearchResults(BaseModel):
