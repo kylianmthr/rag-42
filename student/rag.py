@@ -3,18 +3,23 @@ import os
 from pathlib import Path
 import re
 from pydantic import BaseModel
+from student import generate
 from student.generate import Generate
 from student.indexer import Indexer
 import bm25s
 import chromadb
 
 from student.validator import (
+    MinimalAnswer,
     MinimalSearchResults,
     MinimalSource,
     RagDataset,
     StudentSearchResults,
+    StudentSearchResultsAndAnswer,
+    UnansweredQuestion,
 )
 from sentence_transformers import CrossEncoder
+from transformers import AutoModelForCausalLM, AutoTokenizer
 
 
 class RAG:
@@ -23,6 +28,8 @@ class RAG:
         path.mkdir(parents=True, exist_ok=True)
         self.client = chromadb.PersistentClient("data/processed/chunks")
         self.rank_model = CrossEncoder("cross-encoder/ms-marco-MiniLM-L-6-v2")
+        self.tokenizer = AutoTokenizer.from_pretrained("Qwen/Qwen3-0.6B")
+        self.model = AutoModelForCausalLM.from_pretrained("Qwen/Qwen3-0.6B")
 
     def index(self, path: str, max_chunk_size: int) -> None:
         indexer = Indexer(path, max_chunk_size)
@@ -81,16 +88,16 @@ class RAG:
                 )
             )
         res = StudentSearchResults(search_results=search_results, k=k)
-        self.save_model(save_directory, "search_result.json", res)
+        path = Path(save_directory)
+        path.mkdir(parents=True, exist_ok=True)
+        self.save_model(save_directory, "dataset_docs_public.json", res)
 
-    def answer(self, prompt: str, k: int) -> None:
-        generator = Generate(
-            self.search(prompt, k),
-            prompt,
-            k,
-        )
+    def generate_pipeline(
+        self, sources: list[MinimalSource], question: str, k: int
+    ):
+        generator = Generate(sources, question, k, self.model, self.tokenizer)
         inputs = generator.generate_inputs(
-            generator.generate_context(), prompt
+            generator.generate_context(), question
         )
         outputs = generator.generate_answer(inputs)
         answer = re.sub(
@@ -99,16 +106,70 @@ class RAG:
             generator.decode(inputs, outputs),
             flags=re.DOTALL,
         ).strip()
+        return answer
+
+    def answer(self, prompt: str, k: int) -> None:
+        srcs = self.search(prompt, k)
+        answer = self.generate_pipeline(srcs, prompt, k)
         if not os.path.isdir("data/output"):
             os.mkdir("data/output")
         with open("data/output/search_result.json", "w") as f:
             json.dump(
-                json.loads(generator.generate_model(answer).model_dump_json()),
+                json.loads(
+                    self.generate_model(
+                        answer, prompt, srcs, k
+                    ).model_dump_json()
+                ),
                 f,
             )
 
+    def answer_dataset(
+        self,
+        student_search_results_path: str,
+        save_directory: str,
+    ) -> None:
+        with open(student_search_results_path) as f:
+            searchs = StudentSearchResults(**json.loads(f.read()))
+            answers: list[MinimalAnswer] = []
+            for search in searchs.search_results:
+                answer = self.generate_pipeline(
+                    search.retrieved_sources, search.question, searchs.k
+                )
+                answers.append(
+                    MinimalAnswer(
+                        question_id=search.question_id,
+                        question=search.question,
+                        retrieved_sources=search.retrieved_sources,
+                        answer=answer,
+                    )
+                )
+            self.save_model(
+                path=save_directory,
+                file="dataset_docs_public.json",
+                model=StudentSearchResultsAndAnswer(
+                    search_results=answers, k=searchs.k
+                ),
+            )
+
     def save_model(self, path: str, file: str, model: BaseModel) -> None:
-        if not os.path.isdir(path):
-            os.mkdir(path)
+        path_obj = Path(path)
+        path_obj.mkdir(parents=True, exist_ok=True)
         with open(f"{path}/{file}", "w") as f:
             json.dump(json.loads(model.model_dump_json()), f, indent=4)
+
+    def generate_model(
+        self, answer: str, prompt: str, docs: list[MinimalSource], k: int
+    ) -> StudentSearchResultsAndAnswer:
+        return StudentSearchResultsAndAnswer(
+            search_results=[
+                MinimalAnswer(
+                    question_id=UnansweredQuestion(
+                        question=prompt
+                    ).question_id,
+                    question=prompt,
+                    retrieved_sources=docs,
+                    answer=answer,
+                )
+            ],
+            k=k,
+        )

@@ -21,3 +21,8 @@ dependencies = [
     "transformers>=5.4.0",
     "uuid>=1.30",
 ]
+
+[dependency-groups]
+dev = [
+    "types-tqdm>=4.67.3.20260402",
+]

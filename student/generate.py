@@ -1,6 +1,5 @@
 from typing import Any
 import torch
-from transformers import AutoModelForCausalLM, AutoTokenizer
 
 from student.validator import (
     MinimalAnswer,
@@ -11,11 +10,18 @@ from student.validator import (
 
 
 class Generate:
-    def __init__(self, docs: list[MinimalSource], prompt: str, k: int) -> None:
+    def __init__(
+        self,
+        docs: list[MinimalSource],
+        prompt: str,
+        k: int,
+        model: Any,
+        tokenizer: Any,
+    ) -> None:
         self.docs: list[MinimalSource] = docs
         self.context: None | str = None
-        self.tokenizer = AutoTokenizer.from_pretrained("Qwen/Qwen3-0.6B")
-        self.model = AutoModelForCausalLM.from_pretrained("Qwen/Qwen3-0.6B")
+        self.tokenizer = tokenizer
+        self.model = model
         self.prompt = prompt
         self.k = k
 
@@ -62,18 +68,3 @@ class Generate:
         if len(string) > 400:
             return string[:400]
         return string
-
-    def generate_model(self, answer: str) -> StudentSearchResultsAndAnswer:
-        return StudentSearchResultsAndAnswer(
-            search_results=[
-                MinimalAnswer(
-                    question_id=UnansweredQuestion(
-                        question=self.prompt
-                    ).question_id,
-                    question=self.prompt,
-                    retrieved_sources=self.docs,
-                    answer=answer,
-                )
-            ],
-            k=self.k,
-        )

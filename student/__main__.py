@@ -1,8 +1,13 @@
+import json
+import re
 import fire
+from student.generate import Generate
 from student.rag import RAG
 from student.validator import (
+    MinimalAnswer,
     MinimalSearchResults,
     StudentSearchResults,
+    StudentSearchResultsAndAnswer,
 )
 
 
@@ -51,7 +56,7 @@ class CLI:
             "UnansweredQuestions/dataset_code_public.json"
         ),
         k: int = 1,
-        save_directory: str = "data/output",
+        save_directory: str = "data/output/search_results",
     ) -> None:
         try:
             self.rag.search_dataset(dataset_path, k, save_directory)
@@ -68,8 +73,19 @@ class CLI:
         except Exception as e:
             print("[Error]:", e)
 
-    def answer_dataset(self) -> None:
-        pass
+    def answer_dataset(
+        self,
+        student_search_results_path: str = "data/output/search_results/dataset_docs_public.json",
+        save_directory: str = "data/output/search_results_and_answer",
+    ) -> None:
+        try:
+            self.rag.answer_dataset(
+                student_search_results_path, save_directory
+            )
+        except (FileExistsError, NotADirectoryError) as e:
+            print("[Error]: Error while saving index", e)
+        except Exception as e:
+            print("[Error]:", e)
 
     def evaluate(self) -> None:
         pass
