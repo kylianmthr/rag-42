@@ -2,7 +2,6 @@ import fire
 from student.rag import RAG
 from student.validator import (
     MinimalSearchResults,
-    MinimalSource,
     StudentSearchResults,
 )
 
@@ -24,26 +23,26 @@ class CLI:
             print("[Error]:", e)
 
     def search(self, query: str, k: int) -> None:
-        # try:
-        docs = self.rag.search(query, k)
-        res = StudentSearchResults(
-            search_results=[
-                MinimalSearchResults(
-                    question_id="1",
-                    question=query,
-                    retrieved_sources=docs,
-                )
-            ],
-            k=k,
-        )
-        self.rag.save_model("data/output", "search_result.json", res)
+        try:
+            docs = self.rag.search(query, k)
+            res = StudentSearchResults(
+                search_results=[
+                    MinimalSearchResults(
+                        question_id="1",
+                        question=query,
+                        retrieved_sources=docs,
+                    )
+                ],
+                k=k,
+            )
+            self.rag.save_model("data/output", "search_result.json", res)
 
-        # except (FileNotFoundError, PermissionError) as e:
-        #    print("[Error]: Error while loading index:", e)
-        # except (FileExistsError, NotADirectoryError) as e:
-        #    print("[Error]: Error while saving index", e)
-        # except Exception as e:
-        #    print("[Error]:", e)
+        except (FileNotFoundError, PermissionError) as e:
+            print("[Error]: Error while loading index:", e)
+        except (FileExistsError, NotADirectoryError) as e:
+            print("[Error]: Error while saving index", e)
+        except Exception as e:
+            print("[Error]:", e)
 
     def search_dataset(
         self,

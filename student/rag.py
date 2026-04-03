@@ -2,8 +2,6 @@ import json
 import os
 from pathlib import Path
 import re
-from typing import Any
-from langchain_core import documents
 from pydantic import BaseModel
 from student.generate import Generate
 from student.indexer import Indexer
