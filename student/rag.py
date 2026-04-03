@@ -16,6 +16,7 @@ from student.validator import (
     RagDataset,
     StudentSearchResults,
 )
+from sentence_transformers import CrossEncoder
 
 
 class RAG:
@@ -23,6 +24,7 @@ class RAG:
         path = Path("data/processed/chunks")
         path.mkdir(parents=True, exist_ok=True)
         self.client = chromadb.PersistentClient("data/processed/chunks")
+        self.rank_model = CrossEncoder("cross-encoder/ms-marco-MiniLM-L-6-v2")
 
     def index(self, path: str, max_chunk_size: int) -> None:
         indexer = Indexer(path, max_chunk_size)
@@ -33,23 +35,34 @@ class RAG:
     def load_index(self) -> bm25s.BM25:
         return bm25s.BM25.load("data/processed/bm25_index", load_corpus=True)
 
+    def rerank(
+        self, query: str, k: int, srcs: list[MinimalSource]
+    ) -> list[MinimalSource]:
+        srcs_with_score = {}
+        for src in srcs:
+            srcs_with_score[src.page_content] = self.rank_model.predict(
+                [(query, src.page_content)]
+            )
+        srcs = sorted(srcs, key=lambda x: srcs_with_score[x.page_content][0])
+        return srcs[:k]
+
     def search(self, query: str, k: int) -> list[MinimalSource]:
         sources: list[MinimalSource] = []
         ret_loaded = self.load_index()
         collection = self.client.get_or_create_collection(
             name="chunks",
         )
-        res = collection.query(query_texts=[query], n_results=k)
         docs, scores = ret_loaded.retrieve(bm25s.tokenize(query), k=k)
         sources += [MinimalSource(**doc) for doc in docs[0]]
+        res = collection.query(query_texts=[query], n_results=k)
         if res["metadatas"]:
             sources += [
                 MinimalSource(
-                    **res["metadatas"][i][0],
+                    **res["metadatas"][0][i],
                 )
-                for i in range(len(res["ids"]))
-            ]  # c'est comme si y'avais pas tout qui etait rejoute, a voir dans le save parce que dans le search_results j'ai que 5 results et pas 10
-        return sources
+                for i in range(len(res["ids"][0]))
+            ]
+        return self.rerank(query, k, sources)
 
     def search_dataset(
         self,
