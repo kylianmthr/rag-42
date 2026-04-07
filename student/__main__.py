@@ -88,7 +88,15 @@ class CLI:
         except Exception as e:
             print("[Error]:", e)
 
-    def inter(self, index_starts, index_ends):
+    def inter(self, src, ret_src):
+        index_starts = (
+            src.first_character_index,
+            ret_src.first_character_index,
+        )
+        index_ends = (
+            src.last_character_index,
+            ret_src.last_character_index,
+        )
         return max(0, min(index_ends) - max(index_starts)) / (
             index_ends[1] - index_starts[1]
         )
@@ -103,28 +111,20 @@ class CLI:
         with open(dataset_path, "r") as f:
             dataset = RagDataset(**json.loads(f.read()))
         if search_results and dataset:
-            for i in range(len(search_results.search_results)):
-                recall = 0
-                for j in range(search_results.k):
-                    recall += self.inter(
-                        [
-                            search_results.search_results[i]
-                            .retrieved_sources[j]
-                            .first_character_index,
-                            dataset.rag_questions[i]
-                            .sources[j]
-                            .first_character_index,
-                        ],
-                        [
-                            search_results.search_results[i]
-                            .retrieved_sources[j]
-                            .last_character_index,
-                            dataset.rag_questions[i]
-                            .sources[j]
-                            .last_character_index,
-                        ],
-                    )
-                print(f"Recall@{i}:", recall / search_results.k)
+            for i, question in enumerate(dataset.rag_questions):
+                srcs_found = 0
+                srcs = question.sources
+                retrieved_srcs = search_results.search_results[
+                    i
+                ].retrieved_sources
+
+                for src in srcs:
+                    for ret_src in retrieved_srcs:
+                        if src.file_path == ret_src.file_path:
+                            if self.inter(src, ret_src) >= 0.05:
+                                srcs_found += 1
+                                break
+                print(f"Recall@{search_results.k}:", srcs_found / len(srcs))
 
 
 if __name__ == "__main__":
