@@ -131,7 +131,7 @@ class RAG:
         with open(student_search_results_path, "r") as f:
             searchs = StudentSearchResults(**json.loads(f.read()))
             answers: list[MinimalAnswer] = []
-            for search in searchs.search_results:
+            for _, search in enumerate(tqdm(searchs.search_results)):
                 answer = self.generate_pipeline(
                     search.retrieved_sources, search.question, searchs.k
                 )
