@@ -1,8 +1,12 @@
+import json
+from typing import Optional
 import fire
 from student.rag import RAG
 from student.validator import (
     MinimalSearchResults,
+    RagDataset,
     StudentSearchResults,
+    StudentSearchResultsAndAnswer,
 )
 
 
@@ -84,8 +88,43 @@ class CLI:
         except Exception as e:
             print("[Error]:", e)
 
-    def evaluate(self) -> None:
-        pass
+    def inter(self, src, ret_src):
+        index_starts = (
+            src.first_character_index,
+            ret_src.first_character_index,
+        )
+        index_ends = (
+            src.last_character_index,
+            ret_src.last_character_index,
+        )
+        return max(0, min(index_ends) - max(index_starts)) / (
+            index_ends[1] - index_starts[1]
+        )
+
+    def evaluate(
+        self,
+        student_answer_path: str = "data/output/search_results/dataset_docs_public.json",
+        dataset_path: str = "datasets_public/public/AnsweredQuestions/dataset_docs_public.json",
+    ) -> None:
+        with open(student_answer_path, "r") as f:
+            search_results = StudentSearchResults(**json.loads(f.read()))
+        with open(dataset_path, "r") as f:
+            dataset = RagDataset(**json.loads(f.read()))
+        if search_results and dataset:
+            for i, question in enumerate(dataset.rag_questions):
+                srcs_found = 0
+                srcs = question.sources
+                retrieved_srcs = search_results.search_results[
+                    i
+                ].retrieved_sources
+
+                for src in srcs:
+                    for ret_src in retrieved_srcs:
+                        if src.file_path == ret_src.file_path:
+                            if self.inter(src, ret_src) >= 0.05:
+                                srcs_found += 1
+                                break
+                print(f"Recall@{search_results.k}:", srcs_found / len(srcs))
 
 
 if __name__ == "__main__":
