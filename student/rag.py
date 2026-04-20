@@ -7,6 +7,7 @@ from student.generate import Generate
 from student.indexer import Indexer
 import bm25s
 import chromadb
+from tqdm import tqdm
 
 from student.validator import (
     MinimalAnswer,
@@ -77,7 +78,7 @@ class RAG:
         search_results: list[MinimalSearchResults] = []
         with open(dataset_path, "r") as f:
             rag_dataset = RagDataset.model_validate_json(f.read())
-        for question in rag_dataset.rag_questions:
+        for i, question in enumerate(tqdm(rag_dataset.rag_questions)):
             search_res = self.search(question.question, k)
             search_results.append(
                 MinimalSearchResults(
