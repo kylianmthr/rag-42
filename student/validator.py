@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Union
 from pydantic import BaseModel, Field
 import uuid
 
@@ -21,7 +21,7 @@ class AnsweredQuestion(UnansweredQuestion):
 
 
 class RagDataset(BaseModel):
-    rag_questions: List[AnsweredQuestion | UnansweredQuestion]
+    rag_questions: List[Union[AnsweredQuestion, UnansweredQuestion]]
 
 
 class MinimalSearchResults(BaseModel):

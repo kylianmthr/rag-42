@@ -48,7 +48,11 @@ class RAG:
             srcs_with_score[src.page_content] = self.rank_model.predict(
                 [(query, src.page_content)]
             )
-        srcs = sorted(srcs, key=lambda x: srcs_with_score[x.page_content][0])
+        srcs = sorted(
+            srcs,
+            key=lambda x: srcs_with_score[x.page_content][0],
+            reverse=True,
+        )
         return srcs[:k]
 
     def search(self, query: str, k: int) -> list[MinimalSource]:
@@ -57,7 +61,7 @@ class RAG:
         collection = self.client.get_or_create_collection(
             name="chunks",
         )
-        docs, scores = ret_loaded.retrieve(bm25s.tokenize(query), k=k)
+        docs, _ = ret_loaded.retrieve(bm25s.tokenize(query), k=k)
         sources += [MinimalSource(**doc) for doc in docs[0]]
         res = collection.query(query_texts=[query], n_results=k)
         if res["metadatas"]:
@@ -78,7 +82,7 @@ class RAG:
         search_results: list[MinimalSearchResults] = []
         with open(dataset_path, "r") as f:
             rag_dataset = RagDataset.model_validate_json(f.read())
-        for i, question in enumerate(tqdm(rag_dataset.rag_questions)):
+        for _, question in enumerate(tqdm(rag_dataset.rag_questions)):
             search_res = self.search(question.question, k)
             search_results.append(
                 MinimalSearchResults(
