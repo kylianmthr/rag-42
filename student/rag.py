@@ -61,9 +61,9 @@ class RAG:
         collection = self.client.get_or_create_collection(
             name="chunks",
         )
-        
-        candidate_k = max(k * 30, 150)
-        
+
+        candidate_k = k
+
         docs, _ = ret_loaded.retrieve(bm25s.tokenize(query), k=candidate_k)
         sources += [MinimalSource(**doc) for doc in docs[0]]
         res = collection.query(query_texts=[query], n_results=candidate_k)
@@ -74,14 +74,14 @@ class RAG:
                 )
                 for i in range(len(res["ids"][0]))
             ]
-            
+
         unique_sources = []
         seen = set()
         for src in sources:
             if src.page_content not in seen:
                 seen.add(src.page_content)
                 unique_sources.append(src)
-                
+
         return self.rerank(query, k, unique_sources)
 
     def search_dataset(

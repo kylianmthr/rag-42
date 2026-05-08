@@ -35,7 +35,7 @@ class Indexer:
         self.path = path
 
     def load_files(self) -> None:
-        for root, dirs, files in os.walk(self.path):
+        for root, _, files in os.walk(self.path):
             for file in files:
                 extension = os.path.splitext(file)[1]
                 path_file = os.path.join(root, file)
