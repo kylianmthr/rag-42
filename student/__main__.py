@@ -15,7 +15,7 @@ class CLI:
         self.rag = RAG()
 
     def index(
-        self, path: str = "vllm-0.10.1/", max_chunk_size: int = 2000
+        self, path: str = "data/raw/vllm-0.10.1/", max_chunk_size: int = 2000
     ) -> None:
         try:
             self.rag.index(path, max_chunk_size)
@@ -51,8 +51,7 @@ class CLI:
     def search_dataset(
         self,
         dataset_path: str = (
-            "datasets_public/public/"
-            "UnansweredQuestions/dataset_code_public.json"
+            "datasets_public/public/UnansweredQuestions/dataset_code_public.json"
         ),
         k: int = 1,
         save_directory: str = "data/output/search_results",
@@ -80,9 +79,7 @@ class CLI:
         save_directory: str = "data/output/search_results_and_answer",
     ) -> None:
         try:
-            self.rag.answer_dataset(
-                student_search_results_path, save_directory
-            )
+            self.rag.answer_dataset(student_search_results_path, save_directory)
         except (FileExistsError, NotADirectoryError) as e:
             print("[Error]: Error while saving index", e)
         except Exception as e:
@@ -97,9 +94,10 @@ class CLI:
             src.last_character_index,
             ret_src.last_character_index,
         )
-        return max(0, min(index_ends) - max(index_starts)) / (
-            index_ends[1] - index_starts[1]
-        )
+        src_len = index_ends[0] - index_starts[0]
+        if src_len == 0:
+            return 0
+        return max(0, min(index_ends) - max(index_starts)) / src_len
 
     def evaluate(
         self,
@@ -111,12 +109,11 @@ class CLI:
         with open(dataset_path, "r") as f:
             dataset = RagDataset(**json.loads(f.read()))
         if search_results and dataset:
+            total_recall = 0
             for i, question in enumerate(dataset.rag_questions):
                 srcs_found = 0
                 srcs = question.sources
-                retrieved_srcs = search_results.search_results[
-                    i
-                ].retrieved_sources
+                retrieved_srcs = search_results.search_results[i].retrieved_sources
 
                 for src in srcs:
                     for ret_src in retrieved_srcs:
@@ -124,7 +121,10 @@ class CLI:
                             if self.inter(src, ret_src) >= 0.05:
                                 srcs_found += 1
                                 break
-                print(f"Recall@{search_results.k}:", srcs_found / len(srcs))
+                total_recall += srcs_found / len(srcs) if len(srcs) > 0 else 0
+            
+            num_questions = len(dataset.rag_questions)
+            print(f"Recall@{search_results.k}:", total_recall / num_questions if num_questions > 0 else 0)
 
 
 if __name__ == "__main__":

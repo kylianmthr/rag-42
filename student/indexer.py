@@ -81,6 +81,7 @@ class Indexer:
             {
                 "splitter": MarkdownTextSplitter(
                     chunk_size=self.max_chunk_size,
+                    chunk_overlap=int(self.max_chunk_size * 0.1),
                     add_start_index=True,
                 ),
                 "content": self.contents["md_content"],
@@ -90,6 +91,7 @@ class Indexer:
                 "splitter": RecursiveCharacterTextSplitter.from_language(
                     language=Language.PYTHON,
                     chunk_size=self.max_chunk_size,
+                    chunk_overlap=int(self.max_chunk_size * 0.1),
                     add_start_index=True,
                 ),
                 "content": self.contents["python_content"],
@@ -121,8 +123,9 @@ class Indexer:
             )
 
     def save(self, client: chromadb.api.client.Client) -> None:
-        tokenized_content = [doc.page_content.split(" ") for doc in self.src]
-        retriever = bm25s.BM25(corpus=tokenized_content)
+        corpus_texts = [doc.page_content for doc in self.src]
+        tokenized_content = bm25s.tokenize(corpus_texts)
+        retriever = bm25s.BM25()
         retriever.index(tokenized_content)
         retriever.save(
             "data/processed/bm25_index",
