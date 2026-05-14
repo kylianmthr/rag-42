@@ -110,33 +110,40 @@ class CLI:
             "data/datasets/AnsweredQuestions/dataset_docs_public.json"
         ),
     ) -> None:
-        with open(student_answer_path, "r") as f:
-            search_results = StudentSearchResults(**json.loads(f.read()))
-        with open(dataset_path, "r") as f:
-            dataset = RagDataset(**json.loads(f.read()))
-        if search_results and dataset:
-            total_recall = 0.0
-            for i, question in enumerate(dataset.rag_questions):
-                if not isinstance(question, AnsweredQuestion):
-                    continue
-                srcs_found = 0
-                srcs = question.sources
-                retrieved_srcs = search_results.search_results[
-                    i
-                ].retrieved_sources
+        try:
+            with open(student_answer_path, "r") as f:
+                search_results = StudentSearchResults(**json.loads(f.read()))
+            with open(dataset_path, "r") as f:
+                dataset = RagDataset(**json.loads(f.read()))
+            if search_results and dataset:
+                total_recall = 0.0
+                for i, question in enumerate(dataset.rag_questions):
+                    if not isinstance(question, AnsweredQuestion):
+                        continue
+                    srcs_found = 0
+                    srcs = question.sources
+                    retrieved_srcs = search_results.search_results[
+                        i
+                    ].retrieved_sources
 
-                for src in srcs:
-                    for ret_src in retrieved_srcs:
-                        if src.file_path == ret_src.file_path:
-                            if self.inter(src, ret_src) >= 0.05:
-                                srcs_found += 1
-                                break
-                total_recall += srcs_found / len(srcs) if len(srcs) > 0 else 0
-            num_questions = len(dataset.rag_questions)
-            print(
-                f"Recall@{search_results.k}:",
-                total_recall / num_questions if num_questions > 0 else 0,
-            )
+                    for src in srcs:
+                        for ret_src in retrieved_srcs:
+                            if src.file_path == ret_src.file_path:
+                                if self.inter(src, ret_src) >= 0.05:
+                                    srcs_found += 1
+                                    break
+                    total_recall += (
+                        srcs_found / len(srcs) if len(srcs) > 0 else 0
+                    )
+                num_questions = len(dataset.rag_questions)
+                print(
+                    f"Recall@{search_results.k}:",
+                    total_recall / num_questions if num_questions > 0 else 0,
+                )
+        except (FileNotFoundError, PermissionError) as e:
+            print("[Error]: Error while loading files:", e)
+        except Exception as e:
+            print("[Error]:", e)
 
 
 if __name__ == "__main__":
