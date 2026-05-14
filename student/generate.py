@@ -27,7 +27,7 @@ class Generate:
         for doc in self.docs:
             context += f"# SOURCE: {doc.file_path}\n"
             context += "---\n"
-            context += doc.page_content
+            context += str(doc.page_content)
             context += "---\n"
         return context
 
@@ -45,7 +45,7 @@ class Generate:
         ).to(self.model.device)
         return inputs
 
-    @torch.inference_mode()  # type: ignore
+    @torch.inference_mode()
     def generate_answer(self, data: Any) -> Any:
         return self.model.generate(
             **data,

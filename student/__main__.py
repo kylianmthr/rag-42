@@ -1,12 +1,12 @@
 import json
-from typing import Optional
 import fire
 from student.rag import RAG
 from student.validator import (
+    AnsweredQuestion,
+    MinimalSource,
     MinimalSearchResults,
     RagDataset,
     StudentSearchResults,
-    StudentSearchResultsAndAnswer,
 )
 
 
@@ -51,7 +51,7 @@ class CLI:
     def search_dataset(
         self,
         dataset_path: str = (
-            "datasets_public/public/UnansweredQuestions/dataset_code_public.json"
+            "data/datasets/UnansweredQuestions/dataset_docs_public.json"
         ),
         k: int = 1,
         save_directory: str = "data/output/search_results",
@@ -79,13 +79,15 @@ class CLI:
         save_directory: str = "data/output/search_results_and_answer",
     ) -> None:
         try:
-            self.rag.answer_dataset(student_search_results_path, save_directory)
+            self.rag.answer_dataset(
+                student_search_results_path, save_directory
+            )
         except (FileExistsError, NotADirectoryError) as e:
             print("[Error]: Error while saving index", e)
         except Exception as e:
             print("[Error]:", e)
 
-    def inter(self, src, ret_src):
+    def inter(self, src: MinimalSource, ret_src: MinimalSource) -> float:
         index_starts = (
             src.first_character_index,
             ret_src.first_character_index,
@@ -97,23 +99,31 @@ class CLI:
         src_len = index_ends[0] - index_starts[0]
         if src_len == 0:
             return 0
-        return max(0, min(index_ends) - max(index_starts)) / src_len
+        return max(0.0, min(index_ends) - max(index_starts)) / src_len
 
     def evaluate(
         self,
-        student_answer_path: str = "data/output/search_results/dataset_docs_public.json",
-        dataset_path: str = "datasets_public/public/AnsweredQuestions/dataset_docs_public.json",
+        student_answer_path: str = (
+            "data/output/search_results/dataset_docs_public.json"
+        ),
+        dataset_path: str = (
+            "data/datasets/AnsweredQuestions/dataset_docs_public.json"
+        ),
     ) -> None:
         with open(student_answer_path, "r") as f:
             search_results = StudentSearchResults(**json.loads(f.read()))
         with open(dataset_path, "r") as f:
             dataset = RagDataset(**json.loads(f.read()))
         if search_results and dataset:
-            total_recall = 0
+            total_recall = 0.0
             for i, question in enumerate(dataset.rag_questions):
+                if not isinstance(question, AnsweredQuestion):
+                    continue
                 srcs_found = 0
                 srcs = question.sources
-                retrieved_srcs = search_results.search_results[i].retrieved_sources
+                retrieved_srcs = search_results.search_results[
+                    i
+                ].retrieved_sources
 
                 for src in srcs:
                     for ret_src in retrieved_srcs:
@@ -122,9 +132,11 @@ class CLI:
                                 srcs_found += 1
                                 break
                 total_recall += srcs_found / len(srcs) if len(srcs) > 0 else 0
-            
             num_questions = len(dataset.rag_questions)
-            print(f"Recall@{search_results.k}:", total_recall / num_questions if num_questions > 0 else 0)
+            print(
+                f"Recall@{search_results.k}:",
+                total_recall / num_questions if num_questions > 0 else 0,
+            )
 
 
 if __name__ == "__main__":

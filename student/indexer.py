@@ -123,7 +123,7 @@ class Indexer:
             )
 
     def save(self, client: chromadb.api.client.Client) -> None:
-        corpus_texts = [doc.page_content for doc in self.src]
+        corpus_texts = [self._page_content_or_empty(doc) for doc in self.src]
         tokenized_content = bm25s.tokenize(corpus_texts)
         retriever = bm25s.BM25()
         retriever.index(tokenized_content)
@@ -133,7 +133,7 @@ class Indexer:
         )
         self.batch_insert(
             client,
-            documents=[src.page_content for src in self.src],
+            documents=[self._page_content_or_empty(src) for src in self.src],
             metadatas=[src.model_dump() for src in self.src],
             ids=[str(uuid.uuid4()) for _ in range(len(self.src))],
         )
@@ -142,3 +142,7 @@ class Indexer:
         #    os.mkdir("data/processed/chunks")
         # with open("data/processed/chunks/corpus.json", "w") as f:
         #    json.dump(chunk_data, f)
+
+    @staticmethod
+    def _page_content_or_empty(src: MinimalSource) -> str:
+        return src.page_content if src.page_content is not None else ""
