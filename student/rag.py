@@ -24,6 +24,7 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 
 class RAG:
     def __init__(self) -> None:
+        """Initialize retrieval, ranking, and generation components."""
         path = Path("data/processed/chunks")
         path.mkdir(parents=True, exist_ok=True)
         self.client = chromadb.PersistentClient("data/processed/chunks")
@@ -32,17 +33,38 @@ class RAG:
         self.model = AutoModelForCausalLM.from_pretrained("Qwen/Qwen3-0.6B")
 
     def index(self, path: str, max_chunk_size: int) -> None:
+        """Index a folder and build BM25 and vector stores.
+
+        Args:
+            path: Folder containing documents to index.
+            max_chunk_size: Maximum chunk size for splitting.
+        """
         indexer = Indexer(path, max_chunk_size)
         indexer.load_files()
         indexer.split()
         indexer.save(self.client)
 
     def load_index(self) -> bm25s.BM25:
+        """Load the BM25 index from disk.
+
+        Returns:
+            Loaded BM25 retriever.
+        """
         return bm25s.BM25.load("data/processed/bm25_index", load_corpus=True)
 
     def rerank(
         self, query: str, k: int, srcs: list[MinimalSource]
     ) -> list[MinimalSource]:
+        """Rerank sources with a cross-encoder model.
+
+        Args:
+            query: User question or search query.
+            k: Number of sources to keep.
+            srcs: Candidate sources to score.
+
+        Returns:
+            Reranked list of sources.
+        """
         srcs_with_score = {}
         for src in srcs:
             srcs_with_score[src.page_content] = self.rank_model.predict(
@@ -56,6 +78,15 @@ class RAG:
         return srcs[:k]
 
     def search(self, query: str, k: int) -> list[MinimalSource]:
+        """Retrieve relevant sources for a query.
+
+        Args:
+            query: User question or search query.
+            k: Number of sources to return.
+
+        Returns:
+            List of retrieved sources.
+        """
         sources: list[MinimalSource] = []
         ret_loaded = self.load_index()
         collection = self.client.get_or_create_collection(
@@ -90,6 +121,13 @@ class RAG:
         k: int,
         save_directory: str,
     ) -> None:
+        """Run search for each dataset question and save results.
+
+        Args:
+            dataset_path: Path to the dataset JSON file.
+            k: Number of sources to retrieve per question.
+            save_directory: Output folder for search results.
+        """
         search_results: list[MinimalSearchResults] = []
         with open(dataset_path, "r") as f:
             rag_dataset = RagDataset.model_validate_json(f.read())
@@ -110,6 +148,16 @@ class RAG:
     def generate_pipeline(
         self, sources: list[MinimalSource], question: str, k: int
     ) -> str:
+        """Generate an answer using retrieved sources and a question.
+
+        Args:
+            sources: Retrieved sources to use as context.
+            question: Question to answer.
+            k: Number of sources used.
+
+        Returns:
+            Final answer text.
+        """
         generator = Generate(sources, question, k, self.model, self.tokenizer)
         inputs = generator.generate_inputs(
             generator.generate_context(), question
@@ -124,6 +172,12 @@ class RAG:
         return answer
 
     def answer(self, prompt: str, k: int) -> None:
+        """Answer a single prompt and save the result to disk.
+
+        Args:
+            prompt: Question to answer.
+            k: Number of sources to retrieve.
+        """
         srcs = self.search(prompt, k)
         answer = self.generate_pipeline(srcs, prompt, k)
         if not os.path.isdir("data/output"):
@@ -143,6 +197,12 @@ class RAG:
         student_search_results_path: str,
         save_directory: str,
     ) -> None:
+        """Generate answers for a saved search results file.
+
+        Args:
+            student_search_results_path: Path to search results JSON.
+            save_directory: Output folder for answers.
+        """
         with open(student_search_results_path, "r") as f:
             searchs = StudentSearchResults(**json.loads(f.read()))
             answers: list[MinimalAnswer] = []
@@ -167,6 +227,13 @@ class RAG:
             )
 
     def save_model(self, path: str, file: str, model: BaseModel) -> None:
+        """Serialize a Pydantic model to JSON on disk.
+
+        Args:
+            path: Output folder.
+            file: Output file name.
+            model: Pydantic model to serialize.
+        """
         path_obj = Path(path)
         path_obj.mkdir(parents=True, exist_ok=True)
         with open(f"{path}/{file}", "w") as f:
@@ -175,6 +242,17 @@ class RAG:
     def generate_model(
         self, answer: str, prompt: str, docs: list[MinimalSource], k: int
     ) -> StudentSearchResultsAndAnswer:
+        """Build a single-entry result model from generated output.
+
+        Args:
+            answer: Generated answer text.
+            prompt: Original question.
+            docs: Retrieved sources used as context.
+            k: Number of sources used.
+
+        Returns:
+            Structured result model for serialization.
+        """
         return StudentSearchResultsAndAnswer(
             search_results=[
                 MinimalAnswer(

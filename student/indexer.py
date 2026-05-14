@@ -21,6 +21,12 @@ class ChunkDict(TypedDict):
 
 class Indexer:
     def __init__(self, path: str, max_chunk_size: int) -> None:
+        """Initialize the indexer for a source folder.
+
+        Args:
+            path: Root folder to crawl for files.
+            max_chunk_size: Maximum chunk size for splitting.
+        """
         self.contents: dict[str, list[Any]] = {
             "python_content": [],
             "md_content": [],
@@ -35,6 +41,11 @@ class Indexer:
         self.path = path
 
     def load_files(self) -> None:
+        """Load .py and .md files into memory.
+
+        Raises:
+            EmptyFolder: If no .py or .md files are found.
+        """
         for root, _, files in os.walk(self.path):
             for file in files:
                 extension = os.path.splitext(file)[1]
@@ -64,6 +75,13 @@ class Indexer:
         content: list[Any],
         metadatas: list[Any],
     ) -> None:
+        """Split a list of documents and record minimal sources.
+
+        Args:
+            splitter: Text splitter to use for chunking.
+            content: Raw documents to split.
+            metadatas: Metadata associated with each document.
+        """
         docs = splitter.create_documents(content, metadatas=metadatas)
         for i, doc in enumerate(docs):
             self.src.append(
@@ -77,6 +95,7 @@ class Indexer:
             )
 
     def split(self) -> None:
+        """Split loaded files into chunks for indexing."""
         chunks: list[ChunkDict] = [
             {
                 "splitter": MarkdownTextSplitter(
@@ -111,6 +130,15 @@ class Indexer:
         metadatas: list[dict[str, Any]],
         batch_size: int = 5000,
     ) -> None:
+        """Insert documents into ChromaDB in batches.
+
+        Args:
+            client: ChromaDB client instance.
+            ids: Unique ids for each document.
+            documents: Document texts to add.
+            metadatas: Metadata for each document.
+            batch_size: Number of documents per batch.
+        """
         collection = client.get_or_create_collection(
             name="chunks",
         )
@@ -123,6 +151,11 @@ class Indexer:
             )
 
     def save(self, client: chromadb.api.client.Client) -> None:
+        """Persist BM25 and ChromaDB indexes.
+
+        Args:
+            client: ChromaDB client instance.
+        """
         corpus_texts = [self._page_content_or_empty(doc) for doc in self.src]
         tokenized_content = bm25s.tokenize(corpus_texts)
         retriever = bm25s.BM25()
@@ -145,4 +178,12 @@ class Indexer:
 
     @staticmethod
     def _page_content_or_empty(src: MinimalSource) -> str:
+        """Return page content or an empty string.
+
+        Args:
+            src: Source object to read from.
+
+        Returns:
+            Page content when present, else empty string.
+        """
         return src.page_content if src.page_content is not None else ""

@@ -12,21 +12,34 @@ from student.validator import (
 
 class CLI:
     def __init__(self) -> None:
+        """Initialize the CLI with a RAG engine instance."""
         self.rag = RAG()
 
     def index(
         self, path: str = "data/raw/vllm-0.10.1/", max_chunk_size: int = 2000
     ) -> None:
+        """Index files in a folder and build the retrieval stores.
+
+        Args:
+            path: Root folder containing files to index.
+            max_chunk_size: Maximum size for each chunk.
+        """
         try:
             self.rag.index(path, max_chunk_size)
         except (FileNotFoundError, PermissionError) as e:
             print("[Error]: Error while trying to open the file/folder:", e)
         except (FileExistsError, NotADirectoryError) as e:
             print("[Error]: Error while saving index", e)
-        except Exception as e:
+        except (Exception, KeyboardInterrupt) as e:
             print("[Error]:", e)
 
     def search(self, query: str, k: int) -> None:
+        """Search for sources matching a query and save results.
+
+        Args:
+            query: The question or search query.
+            k: Number of sources to retrieve.
+        """
         try:
             docs = self.rag.search(query, k)
             res = StudentSearchResults(
@@ -45,7 +58,7 @@ class CLI:
             print("[Error]: Error while loading index:", e)
         except (FileExistsError, NotADirectoryError) as e:
             print("[Error]: Error while saving index", e)
-        except Exception as e:
+        except (Exception, KeyboardInterrupt) as e:
             print("[Error]:", e)
 
     def search_dataset(
@@ -56,19 +69,32 @@ class CLI:
         k: int = 1,
         save_directory: str = "data/output/search_results",
     ) -> None:
+        """Search all questions in a dataset and save retrieval results.
+
+        Args:
+            dataset_path: Path to the dataset JSON file.
+            k: Number of sources to retrieve per question.
+            save_directory: Folder where results will be written.
+        """
         try:
             self.rag.search_dataset(dataset_path, k, save_directory)
         except (FileExistsError, NotADirectoryError) as e:
             print("[Error]: Error while saving index", e)
-        except Exception as e:
+        except (Exception, KeyboardInterrupt) as e:
             print("[Error]:", e)
 
     def answer(self, prompt: str, k: int = 2) -> None:
+        """Generate an answer for a prompt and save the result.
+
+        Args:
+            prompt: The question to answer.
+            k: Number of sources to retrieve.
+        """
         try:
             self.rag.answer(prompt, k)
         except (FileExistsError, NotADirectoryError) as e:
             print("[Error]: Error while saving index", e)
-        except Exception as e:
+        except (Exception, KeyboardInterrupt) as e:
             print("[Error]:", e)
 
     def answer_dataset(
@@ -78,16 +104,31 @@ class CLI:
         ),
         save_directory: str = "data/output/search_results_and_answer",
     ) -> None:
+        """Generate answers for a dataset of search results.
+
+        Args:
+            student_search_results_path: Path to search results JSON.
+            save_directory: Folder where answers will be written.
+        """
         try:
             self.rag.answer_dataset(
                 student_search_results_path, save_directory
             )
         except (FileExistsError, NotADirectoryError) as e:
             print("[Error]: Error while saving index", e)
-        except Exception as e:
+        except (Exception, KeyboardInterrupt) as e:
             print("[Error]:", e)
 
     def inter(self, src: MinimalSource, ret_src: MinimalSource) -> float:
+        """Compute overlap ratio between a source and a retrieved source.
+
+        Args:
+            src: Ground-truth source span.
+            ret_src: Retrieved source span.
+
+        Returns:
+            Overlap ratio in the range [0, 1].
+        """
         index_starts = (
             src.first_character_index,
             ret_src.first_character_index,
@@ -110,6 +151,12 @@ class CLI:
             "data/datasets/AnsweredQuestions/dataset_docs_public.json"
         ),
     ) -> None:
+        """Compute and print recall for a student search result file.
+
+        Args:
+            student_answer_path: Path to student search results JSON.
+            dataset_path: Path to the answered dataset JSON.
+        """
         try:
             with open(student_answer_path, "r") as f:
                 search_results = StudentSearchResults(**json.loads(f.read()))
@@ -142,7 +189,7 @@ class CLI:
                 )
         except (FileNotFoundError, PermissionError) as e:
             print("[Error]: Error while loading files:", e)
-        except Exception as e:
+        except (Exception, KeyboardInterrupt) as e:
             print("[Error]:", e)
 
 
