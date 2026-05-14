@@ -1,11 +1,11 @@
 SRC=student
 
-all: ${NAME}
+all: ${SRC}
 
 install:
 	uv sync
 
-run: ${NAME}
+run: ${SRC}
 	uv run python -m ${SRC}
 
 debug:
@@ -22,9 +22,5 @@ lint:
 lint-strict:
 	uv run flake8 ${SRC}
 	uv run mypy ${SRC} --strict --exclude "src/llm_sdk/" --follow-imports=silent
-
-#TODO: A SUPPRIMER
-test:
-	uv run pytest -vv
 
 .PHONY: install run debug clean lint lint-strict test
